@@ -21,16 +21,34 @@ jobs:
       - name: Prepare YouTube iPA
         id: prepare_youtube
         run: |
+          # Debug: Print the provided URL
+          echo "Input YouTube URL: ${{ github.event.inputs.decrypted_youtube_url }}"
+
           # Extract the file ID from the input URL
+          YOUTUBE_URL="${{ github.event.inputs.decrypted_youtube_url }}"
           FILE_ID=$(echo "$YOUTUBE_URL" | grep -o 'd/[^/]*' | cut -d'/' -f2)
+
+          # Debug: Print the extracted File ID
           echo "Extracted File ID: $FILE_ID"
+
+          if [ -z "$FILE_ID" ]; then
+            echo "Error: Unable to extract File ID from the provided URL."
+            exit 1
+          fi
 
           OUTPUT_FILE="main/YouTube.ipa"
 
           # Step 3: Get the confirmation token from Google Drive
           CONFIRM=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate \
             "https://drive.google.com/uc?export=download&id=${FILE_ID}" -O- | grep -o 'confirm=[^&]*' | sed 's/confirm=//')
+
+          # Debug: Print the confirmation token
           echo "Confirmation token: $CONFIRM"
+
+          if [ -z "$CONFIRM" ]; then
+            echo "Error: Unable to get confirmation token."
+            exit 1
+          fi
 
           # Step 4: Download the actual file using the confirmation token
           wget --load-cookies /tmp/cookies.txt \
