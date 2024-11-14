@@ -1,3 +1,23 @@
+name: Build YouTube iPA
+
+on: 
+  workflow_dispatch:
+    inputs:
+      decrypted_youtube_url:
+        description: 'Decrypted YouTube URL'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Prepare YouTube iPA
       - name: Prepare YouTube iPA
         id: prepare_youtube
         run: |
