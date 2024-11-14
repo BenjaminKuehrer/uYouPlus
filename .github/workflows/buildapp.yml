@@ -21,7 +21,10 @@ jobs:
         run: |
           DOWNLOAD_URL="${{ github.event.inputs.release_download_url }}"
           echo "Downloading from: $DOWNLOAD_URL"
-          wget "$DOWNLOAD_URL" -O main/YouTube.ipa
+          
+          # Use curl with -L to follow redirects and -H for GitHub headers
+          mkdir -p main
+          curl -L -H "Accept: application/octet-stream" "$DOWNLOAD_URL" -o main/YouTube.ipa
 
           # Verify if the file was downloaded successfully
           if [ ! -f "main/YouTube.ipa" ]; then
