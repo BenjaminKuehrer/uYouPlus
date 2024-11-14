@@ -3,8 +3,8 @@ name: Build YouTube iPA
 on: 
   workflow_dispatch:
     inputs:
-      decrypted_youtube_url:
-        description: 'Decrypted YouTube URL'
+      release_download_url:
+        description: 'GitHub Release Download URL'
         required: true
         type: string
 
@@ -13,61 +13,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Prepare YouTube iPA
-      - name: Prepare YouTube iPA
-        id: prepare_youtube
+      # Step 2: Download YouTube iPA from GitHub Releases
+      - name: Download YouTube iPA
         run: |
-          # Debug: Print the provided URL
-          echo "Input YouTube URL: ${{ github.event.inputs.decrypted_youtube_url }}"
-          
-          # Extract the file ID from the input URL
-          YOUTUBE_URL="${{ github.event.inputs.decrypted_youtube_url }}"
-          
-          # Adjusted extraction logic to handle both types of Google Drive URLs
-          if [[ "$YOUTUBE_URL" == *"id="* ]]; then
-            FILE_ID=$(echo "$YOUTUBE_URL" | grep -o 'id=[^&]*' | cut -d'=' -f2)
-          else
-            FILE_ID=$(echo "$YOUTUBE_URL" | grep -o 'd/[^/]*' | cut -d'/' -f2)
-          fi
-
-          # Debug: Print the extracted File ID
-          echo "Extracted File ID: $FILE_ID"
-
-          if [ -z "$FILE_ID" ]; then
-            echo "Error: Unable to extract File ID from the provided URL."
-            exit 1
-          fi
-
-          OUTPUT_FILE="main/YouTube.ipa"
-
-          # Step 3: Get the confirmation token from Google Drive
-          CONFIRM=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate \
-            "https://drive.google.com/uc?export=download&id=${FILE_ID}" -O- | grep -o 'confirm=[^&]*' | sed 's/confirm=//')
-          
-          # Debug: Print the confirmation token
-          echo "Confirmation token: $CONFIRM"
-
-          if [ -z "$CONFIRM" ]; then
-            echo "Error: Unable to get confirmation token."
-            exit 1
-          fi
-
-          # Step 4: Download the actual file using the confirmation token
-          wget --load-cookies /tmp/cookies.txt \
-            "https://drive.google.com/uc?export=download&confirm=${CONFIRM}&id=${FILE_ID}" \
-            -O "$OUTPUT_FILE" --no-verbose
-
-          # Step 5: Clean up cookies
-          rm -f /tmp/cookies.txt
+          DOWNLOAD_URL="${{ github.event.inputs.release_download_url }}"
+          echo "Downloading from: $DOWNLOAD_URL"
+          wget "$DOWNLOAD_URL" -O main/YouTube.ipa
 
           # Verify if the file was downloaded successfully
-          if [ ! -f "$OUTPUT_FILE" ]; then
+          if [ ! -f "main/YouTube.ipa" ]; then
             echo "Error: Failed to download YouTube.ipa"
             exit 1
           fi
-          
-          echo "File downloaded successfully: $OUTPUT_FILE"
+
+          echo "File downloaded successfully: main/YouTube.ipa"
+
+      # Step 3: Unzip the downloaded file and extract version
+      - name: Extract and Process YouTube iPA
+        run: |
+          cd main
+          mv YouTube.ipa YouTube.zip
+          unzip -q YouTube.zip
+
+          youtube_version=$(defaults read "$(pwd)/Payload/YouTube.app/Info" CFBundleVersion)
+          echo "==> YouTube v$youtube_version downloaded!"
+
+          # Update the Makefile with the extracted version
+          sed -i '' "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
+          echo "youtube_version=${youtube_version}" >> $GITHUB_OUTPUT
