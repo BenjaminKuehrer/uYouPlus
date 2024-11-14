@@ -51,6 +51,13 @@ jobs:
             exit 1
           fi
 
-          # Update the Makefile with the extracted version
-          sed -i "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
+          # Step 4: Conditionally update the Makefile
+          if [ -f "Makefile" ]; then
+            echo "Updating Makefile with YouTube version: $youtube_version"
+            sed -i "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
+          else
+            echo "Warning: Makefile not found. Skipping update."
+          fi
+
+          # Output the YouTube version for subsequent steps
           echo "youtube_version=${youtube_version}" >> $GITHUB_OUTPUT
