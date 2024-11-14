@@ -1,32 +1,18 @@
-name: Build YouTube iPA
-
-on: 
-  workflow_dispatch:
-    inputs:
-      decrypted_youtube_url:
-        description: 'Decrypted YouTube URL'
-        required: true
-        type: string
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      # Step 1: Checkout the repository
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Step 2: Prepare YouTube iPA
       - name: Prepare YouTube iPA
         id: prepare_youtube
         run: |
           # Debug: Print the provided URL
           echo "Input YouTube URL: ${{ github.event.inputs.decrypted_youtube_url }}"
-
+          
           # Extract the file ID from the input URL
           YOUTUBE_URL="${{ github.event.inputs.decrypted_youtube_url }}"
-          FILE_ID=$(echo "$YOUTUBE_URL" | grep -o 'd/[^/]*' | cut -d'/' -f2)
+          
+          # Adjusted extraction logic to handle both types of Google Drive URLs
+          if [[ "$YOUTUBE_URL" == *"id="* ]]; then
+            FILE_ID=$(echo "$YOUTUBE_URL" | grep -o 'id=[^&]*' | cut -d'=' -f2)
+          else
+            FILE_ID=$(echo "$YOUTUBE_URL" | grep -o 'd/[^/]*' | cut -d'/' -f2)
+          fi
 
           # Debug: Print the extracted File ID
           echo "Extracted File ID: $FILE_ID"
@@ -41,7 +27,7 @@ jobs:
           # Step 3: Get the confirmation token from Google Drive
           CONFIRM=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate \
             "https://drive.google.com/uc?export=download&id=${FILE_ID}" -O- | grep -o 'confirm=[^&]*' | sed 's/confirm=//')
-
+          
           # Debug: Print the confirmation token
           echo "Confirmation token: $CONFIRM"
 
@@ -63,17 +49,5 @@ jobs:
             echo "Error: Failed to download YouTube.ipa"
             exit 1
           fi
-
-          # Step 6: Unzip the downloaded file and extract version
-          cd ${{ github.workspace }}/main
-          mv YouTube.ipa YouTube.zip
-          unzip -q YouTube.zip
-
-          youtube_version=$(defaults read "$(pwd)/Payload/YouTube.app/Info" CFBundleVersion)
-          echo "==> YouTube v$youtube_version downloaded!"
-
-          # Step 7: Update the Makefile with the extracted version
-          sed -i '' "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
-          echo "youtube_version=${youtube_version}" >> $GITHUB_OUTPUT
-        env:
-          YOUTUBE_URL: ${{ github.event.inputs.decrypted_youtube_url }}
+          
+          echo "File downloaded successfully: $OUTPUT_FILE"
