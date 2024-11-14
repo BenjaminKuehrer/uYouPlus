@@ -22,7 +22,7 @@ jobs:
           DOWNLOAD_URL="${{ github.event.inputs.release_download_url }}"
           echo "Downloading from: $DOWNLOAD_URL"
           
-          # Use curl with -L to follow redirects and -H for GitHub headers
+          # Use curl to download the file
           mkdir -p main
           curl -L -H "Accept: application/octet-stream" "$DOWNLOAD_URL" -o main/YouTube.ipa
 
@@ -34,16 +34,23 @@ jobs:
 
           echo "File downloaded successfully: main/YouTube.ipa"
 
-      # Step 3: Unzip the downloaded file and extract version
+      # Step 3: Unzip the downloaded file and extract version using grep
       - name: Extract and Process YouTube iPA
         run: |
           cd main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
 
-          youtube_version=$(defaults read "$(pwd)/Payload/YouTube.app/Info" CFBundleVersion)
-          echo "==> YouTube v$youtube_version downloaded!"
+          # Extract the CFBundleVersion from the Info.plist
+          plist_path="Payload/YouTube.app/Info.plist"
+          if [ -f "$plist_path" ]; then
+            youtube_version=$(grep -A1 "<key>CFBundleVersion</key>" "$plist_path" | grep "<string>" | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+            echo "Extracted YouTube version: $youtube_version"
+          else
+            echo "Error: Info.plist not found"
+            exit 1
+          fi
 
           # Update the Makefile with the extracted version
-          sed -i '' "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
+          sed -i "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
           echo "youtube_version=${youtube_version}" >> $GITHUB_OUTPUT
